@@ -3,10 +3,17 @@ const testing = std.testing;
 const opcode = @import("opcode.zig");
 const gas = @import("gas.zig");
 
-pub const Status = enum { Break, Continue, OutOfGas };
+pub const Status = enum {
+    Break,
+    Continue,
+    OutOfGas,
+    StackUnderflow,
+    StackOverflow,
+};
 
-pub const StackErr = error{Overflow};
+pub const StackErr = error{ Underflow, Overflow };
 
+// TODO: Impl safe stack.
 fn Stack(comptime T: type) type {
     const STACK_LIMIT: usize = 1024;
     return struct {
@@ -32,10 +39,17 @@ fn Stack(comptime T: type) type {
         fn pop(self: *This) T {
             return self.inner.pop();
         }
-        fn dup(self: *This, idx: usize) void {
-            const item = self.inner.items[idx];
-            _ = item;
-            return;
+        fn dup(self: *This, idx: usize) !Status {
+            const len = self.inner.items.len;
+            if (len < idx) {
+                return Status.StackUnderflow;
+            } else if (len + 1 > STACK_LIMIT) {
+                return Status.StackOverflow;
+            }
+            // Validation of item.
+            const item = self.get(len - idx);
+            try self.push(item.*);
+            return Status.Continue;
         }
         fn print(self: This) void {
             std.debug.print("{any}\n", .{self.inner.items});
@@ -82,39 +96,7 @@ pub const Interpreter = struct {
     bytecode: []u8,
     stack: Stack(u8),
     inst_result: Status,
-    fn eval(self: *This, op: u8) !void {
-        switch (op) {
-            opcode.ADD => {
-                if (!self.gas_tracker.recordGasCost(gas.VERYLOW)) {
-                    self.inst_result = Status.OutOfGas;
-                }
-                const a = self.stack.pop();
-                const b = self.stack.pop();
-                // TODO: Modulo add.
-                try self.stack.push(a + b);
-                self.stack.print();
-                self.inst_result = Status.Break;
-            },
-            opcode.PUSH1 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                try self.stack.push(start.*);
-                std.debug.print("push1 = {x}\n", .{start.*});
-                self.inst += 1;
-            },
-            opcode.DUP1 => {
-                if (!self.gas_tracker.recordGasCost(gas.LOW)) {
-                    self.inst_result = Status.OutOfGas;
-                }
-                const item = self.stack.get(0);
-                try self.stack.push(item.*);
-                self.stack.print();
-            },
-            else => {
-                std.debug.print("Unhandled opcode 0x{x}\n", .{op});
-                self.inst_result = Status.Break;
-            },
-        }
-    }
+    // TODO: Validate inputs.
     fn init(
         alloc: std.mem.Allocator,
         bytecode: []u8,
@@ -143,6 +125,125 @@ pub const Interpreter = struct {
             self.inst = self.inst + 1;
         }
     }
+    fn subGas(self: *This, cost: u64) void {
+        if (!self.gas_tracker.recordGasCost(cost)) {
+            self.inst_result = Status.OutOfGas;
+        }
+    }
+    fn eval(self: *This, op: u8) !void {
+        switch (op) {
+            opcode.STOP => {
+                self.inst_result = Status.Break;
+            },
+            opcode.ADD => {
+                self.subGas(gas.LOW);
+                const a = self.stack.pop();
+                const b = self.stack.pop();
+                // TODO: Modulo add.
+                try self.stack.push(a + b);
+                self.stack.print();
+            },
+            opcode.MUL => {
+                self.subGas(gas.LOW);
+                const a = self.stack.pop();
+                const b = self.stack.pop();
+                // TODO: Modulo mul.
+                try self.stack.push(a * b);
+                self.stack.print();
+            },
+            opcode.SUB => {
+                self.subGas(gas.LOW);
+                const a = self.stack.pop();
+                const b = self.stack.pop();
+                // TODO: Modulo add.
+                try self.stack.push(a - b);
+                self.stack.print();
+            },
+            opcode.DIV => {
+                self.subGas(gas.LOW);
+            },
+            opcode.SDIV => {},
+            opcode.MOD => {},
+            opcode.SMOD => {},
+            opcode.ADDMOD => {},
+            opcode.MULMOD => {},
+            opcode.EXP => {},
+            opcode.PUSH1 => {
+                const start = @ptrCast(*u8, self.inst + 1);
+                try self.stack.push(start.*);
+                std.debug.print("push1 = {x}\n", .{start.*});
+                self.inst += 1;
+            },
+            opcode.DUP1 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(1);
+            },
+            opcode.DUP2 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(2);
+            },
+            opcode.DUP3 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(3);
+            },
+            opcode.DUP4 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(4);
+            },
+            opcode.DUP5 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(5);
+            },
+            opcode.DUP6 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(6);
+            },
+            opcode.DUP7 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(7);
+            },
+            opcode.DUP8 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(8);
+            },
+            opcode.DUP9 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(9);
+            },
+            opcode.DUP10 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(10);
+            },
+            opcode.DUP11 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(11);
+            },
+            opcode.DUP12 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(12);
+            },
+            opcode.DUP13 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(13);
+            },
+            opcode.DUP14 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(14);
+            },
+            opcode.DUP15 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(15);
+            },
+            opcode.DUP16 => {
+                self.subGas(gas.VERYLOW);
+                self.inst_result = try self.stack.dup(16);
+            },
+            else => {
+                std.debug.print("Unhandled opcode 0x{x}\n", .{op});
+                self.inst_result = Status.Break;
+            },
+        }
+    }
 };
 
 pub fn main() !void {
@@ -150,7 +251,7 @@ pub fn main() !void {
     var ac = gpa.allocator();
     defer _ = gpa.deinit();
 
-    var bytecode = try ac.alloc(u8, 4);
+    var bytecode = try ac.alloc(u8, 10);
     defer ac.free(bytecode);
 
     bytecode = try std.fmt.hexToBytes(bytecode, "60038001");
