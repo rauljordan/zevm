@@ -9,10 +9,11 @@ pub fn main() !void {
     var ac = gpa.allocator();
     defer _ = gpa.deinit();
 
-    var bytecode = try ac.alloc(u8, 4);
+    var bytecode = try ac.alloc(u8, 8);
     defer ac.free(bytecode);
 
-    bytecode = try std.fmt.hexToBytes(bytecode, "60038001");
+    //bytecode = try std.fmt.hexToBytes(bytecode, "60038001600114");
+    bytecode = try std.fmt.hexToBytes(bytecode, "6003800160061400");
     std.debug.print("input bytecode 0x{x}\n", .{
         std.fmt.fmtSliceHexLower(bytecode),
     });
@@ -144,6 +145,7 @@ pub const Interpreter = struct {
             const op = @ptrCast(*u8, self.inst);
             std.debug.print("Running 0x{x}\n", .{op.*});
             try self.eval(op.*);
+            self.stack.print();
             self.inst = self.inst + 1;
         }
     }
@@ -154,17 +156,17 @@ pub const Interpreter = struct {
     }
     fn eval(self: *This, op: u8) !void {
         switch (op) {
+            // Control.
             opcode.STOP => {
                 self.inst_result = Status.Break;
             },
+            // Arithmetic.
             opcode.ADD => {
                 self.subGas(gas.LOW);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
-
                 _ = try a.addWrap(&a, &b, .unsigned, 256);
                 try self.stack.push(a);
-                self.stack.print();
             },
             opcode.MUL => {
                 self.subGas(gas.LOW);
@@ -172,7 +174,6 @@ pub const Interpreter = struct {
                 var b = self.stack.pop();
                 _ = try a.mulWrap(&a, &b, .unsigned, 256);
                 try self.stack.push(a);
-                self.stack.print();
             },
             opcode.SUB => {
                 self.subGas(gas.LOW);
@@ -180,24 +181,106 @@ pub const Interpreter = struct {
                 var b = self.stack.pop();
                 _ = try a.subWrap(&a, &b, .unsigned, 256);
                 try self.stack.push(a);
-                self.stack.print();
             },
             opcode.DIV => {
-                self.subGas(gas.LOW);
+                // self.subGas(gas.LOW);
+                // var a = self.stack.pop();
+                // var b = self.stack.pop();
+                // _ = try a.divFloor(&a, &b, .unsigned, 256);
+                // try self.stack.push(a);
             },
             opcode.SDIV => {},
             opcode.MOD => {},
             opcode.SMOD => {},
             opcode.ADDMOD => {},
             opcode.MULMOD => {},
-            opcode.EXP => {},
+            opcode.EXP => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                const exponent = try b.to(u32);
+                _ = try a.pow(&a, exponent);
+                try self.stack.push(a);
+            },
+            // Comparisons.
+            opcode.LT => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var x = try int.Managed.initSet(self.ac, 0);
+                if (a.orderAbs(b) == .lt) {
+                    try x.set(1);
+                }
+                try self.stack.push(x);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.GT => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var x = try int.Managed.initSet(self.ac, 0);
+                if (a.orderAbs(b) == .gt) {
+                    try x.set(1);
+                }
+                try self.stack.push(x);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.SLT => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var x = try int.Managed.initSet(self.ac, 0);
+                if (a.order(b) == .lt) {
+                    try x.set(1);
+                }
+                try self.stack.push(x);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.SGT => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var x = try int.Managed.initSet(self.ac, 0);
+                if (a.order(b) == .gt) {
+                    try x.set(1);
+                }
+                try self.stack.push(x);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.EQ => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var x = try int.Managed.initSet(self.ac, 0);
+                if (a.eq(b)) {
+                    try x.set(1);
+                }
+                try self.stack.push(x);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.ISZERO => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var x = try int.Managed.initSet(self.ac, 0);
+                if (a.eq(x)) {
+                    try x.set(1);
+                }
+                try self.stack.push(x);
+                a.deinit();
+            },
+            // Pushes.
             opcode.PUSH1 => {
                 const start = @ptrCast(*u8, self.inst + 1);
                 var x = try int.Managed.initSet(self.ac, start.*);
                 try self.stack.push(x);
-                std.debug.print("push1 = {x}\n", .{start.*});
                 self.inst += 1;
             },
+            // Dups.
             opcode.DUP1 => {
                 self.subGas(gas.VERYLOW);
                 self.inst_result = try self.stack.dup(1);
@@ -261,6 +344,11 @@ pub const Interpreter = struct {
             opcode.DUP16 => {
                 self.subGas(gas.VERYLOW);
                 self.inst_result = try self.stack.dup(16);
+            },
+            opcode.POP => {
+                self.subGas(gas.VERYLOW);
+                var x = self.stack.pop();
+                x.deinit();
             },
             else => {
                 std.debug.print("Unhandled opcode 0x{x}\n", .{op});
