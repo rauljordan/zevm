@@ -2,6 +2,25 @@ const std = @import("std");
 const testing = std.testing;
 const opcode = @import("opcode.zig");
 const gas = @import("gas.zig");
+const int = std.math.big.int;
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var ac = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    var bytecode = try ac.alloc(u8, 4);
+    defer ac.free(bytecode);
+
+    bytecode = try std.fmt.hexToBytes(bytecode, "60038001");
+    std.debug.print("input bytecode 0x{x}\n", .{
+        std.fmt.fmtSliceHexLower(bytecode),
+    });
+    var interpreter = try Interpreter.init(ac, bytecode);
+    defer interpreter.deinit() catch std.debug.print("failed", .{});
+    try interpreter.runLoop();
+    std.debug.print("Finished, result {}\n", .{interpreter.inst_result});
+}
 
 pub const Status = enum {
     Break,
@@ -27,7 +46,10 @@ fn Stack(comptime T: type) type {
                 .inner = inner,
             };
         }
-        fn deinit(self: *This) void {
+        fn deinit(self: *This) !void {
+            for (self.inner.items) |*item| {
+                item.deinit();
+            }
             self.inner.deinit();
         }
         fn get(self: This, idx: usize) *T {
@@ -94,7 +116,7 @@ pub const Interpreter = struct {
     inst: [*]u8,
     gas_tracker: GasTracker,
     bytecode: []u8,
-    stack: Stack(u8),
+    stack: Stack(int.Managed),
     inst_result: Status,
     // TODO: Validate inputs.
     fn init(
@@ -105,13 +127,13 @@ pub const Interpreter = struct {
             .ac = alloc,
             .inst = bytecode.ptr,
             .bytecode = bytecode,
-            .stack = try Stack(u8).init(alloc),
+            .stack = try Stack(int.Managed).init(alloc),
             .gas_tracker = GasTracker.init(100),
             .inst_result = Status.Continue,
         };
     }
-    fn deinit(self: *This) void {
-        self.stack.deinit();
+    fn deinit(self: *This) !void {
+        try self.stack.deinit();
     }
     fn programCounter(self: This) usize {
         // Subtraction of pointers is safe here
@@ -137,26 +159,27 @@ pub const Interpreter = struct {
             },
             opcode.ADD => {
                 self.subGas(gas.LOW);
-                const a = self.stack.pop();
-                const b = self.stack.pop();
-                // TODO: Modulo add.
-                try self.stack.push(a + b);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+
+                _ = try a.addWrap(&a, &b, .unsigned, 256);
+                try self.stack.push(a);
                 self.stack.print();
             },
             opcode.MUL => {
                 self.subGas(gas.LOW);
-                const a = self.stack.pop();
-                const b = self.stack.pop();
-                // TODO: Modulo mul.
-                try self.stack.push(a * b);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                _ = try a.mulWrap(&a, &b, .unsigned, 256);
+                try self.stack.push(a);
                 self.stack.print();
             },
             opcode.SUB => {
                 self.subGas(gas.LOW);
-                const a = self.stack.pop();
-                const b = self.stack.pop();
-                // TODO: Modulo add.
-                try self.stack.push(a - b);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                _ = try a.subWrap(&a, &b, .unsigned, 256);
+                try self.stack.push(a);
                 self.stack.print();
             },
             opcode.DIV => {
@@ -170,7 +193,8 @@ pub const Interpreter = struct {
             opcode.EXP => {},
             opcode.PUSH1 => {
                 const start = @ptrCast(*u8, self.inst + 1);
-                try self.stack.push(start.*);
+                var x = try int.Managed.initSet(self.ac, start.*);
+                try self.stack.push(x);
                 std.debug.print("push1 = {x}\n", .{start.*});
                 self.inst += 1;
             },
@@ -245,21 +269,3 @@ pub const Interpreter = struct {
         }
     }
 };
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var ac = gpa.allocator();
-    defer _ = gpa.deinit();
-
-    var bytecode = try ac.alloc(u8, 10);
-    defer ac.free(bytecode);
-
-    bytecode = try std.fmt.hexToBytes(bytecode, "60038001");
-    std.debug.print("input bytecode 0x{x}\n", .{
-        std.fmt.fmtSliceHexLower(bytecode),
-    });
-    var interpreter = try Interpreter.init(ac, bytecode);
-    defer interpreter.deinit();
-    try interpreter.runLoop();
-    std.debug.print("Finished, result {}\n", .{interpreter.inst_result});
-}
