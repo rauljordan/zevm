@@ -11,8 +11,6 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     // TODO: Allocate a fixed buffer for the stack!
-
-    // bytecode = try std.fmt.hexToBytes(bytecode, "6003800160061400");
     var bytecode = [_]u8{
         opcode.PUSH1,
         0x02,
@@ -31,8 +29,11 @@ pub fn main() !void {
     var mock_host = host.Mock.init();
     var interpreter = try Interpreter.init(ac, mock_host, &bytecode);
     defer interpreter.deinit() catch std.debug.print("failed", .{});
+
+    const start = try std.time.Instant.now();
     try interpreter.runLoop();
-    std.debug.print("Finished, result {}\n", .{interpreter.inst_result});
+    const end = try std.time.Instant.now();
+    std.debug.print("Elapsed={}, Result={}\n", .{ std.fmt.fmtDuration(end.since(start)), interpreter.inst_result });
 }
 
 test "Arithmetic opcodes" {}
@@ -379,7 +380,7 @@ pub const Interpreter = struct {
             opcode.PC => {},
             opcode.MSIZE => {},
             opcode.GAS => {
-                var r = try int.Managed.init(self.ac, self.gas_tracker.total_used);
+                var r = try int.Managed.initSet(self.ac, self.gas_tracker.total_used);
                 try self.stack.push(r);
             },
             opcode.JUMPDEST => {},
