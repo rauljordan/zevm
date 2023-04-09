@@ -10,6 +10,8 @@ pub fn main() !void {
     var ac = gpa.allocator();
     defer _ = gpa.deinit();
 
+    // TODO: Allocate a fixed buffer for the stack!
+
     // bytecode = try std.fmt.hexToBytes(bytecode, "6003800160061400");
     var bytecode = [_]u8{
         opcode.PUSH1,
@@ -32,6 +34,12 @@ pub fn main() !void {
     try interpreter.runLoop();
     std.debug.print("Finished, result {}\n", .{interpreter.inst_result});
 }
+
+test "Arithmetic opcodes" {}
+test "Bitwise manipulation opcodes" {}
+test "Stack manipulation opcodes" {}
+test "Control flow opcodes" {}
+test "Host opcodes" {}
 
 pub const Status = enum {
     Break,
@@ -71,6 +79,11 @@ fn Stack(comptime T: type) type {
         }
         fn pop(self: *This) T {
             return self.inner.pop();
+        }
+        fn swap(self: *This, idx: usize) !Status {
+            _ = idx;
+            _ = self;
+            return Status.Continue;
         }
         fn dup(self: *This, idx: usize) !Status {
             const len = self.inner.items.len;
@@ -141,6 +154,14 @@ pub const Interpreter = struct {
         var x = try int.Managed.initSet(self.ac, start.*);
         try self.stack.push(x);
         self.inst += n;
+    }
+    fn dupN(self: *This, n: u8) !void {
+        self.subGas(gas.VERYLOW);
+        self.inst_result = try self.stack.dup(n);
+    }
+    fn swapN(self: *This, n: u8) !void {
+        self.subGas(gas.VERYLOW);
+        self.inst_result = try self.stack.swap(n);
     }
     fn eval(self: *This, op: u8) !void {
         switch (op) {
@@ -357,7 +378,10 @@ pub const Interpreter = struct {
             opcode.JUMPI => {},
             opcode.PC => {},
             opcode.MSIZE => {},
-            opcode.GAS => {},
+            opcode.GAS => {
+                var r = try int.Managed.init(self.ac, self.gas_tracker.total_used);
+                try self.stack.push(r);
+            },
             opcode.JUMPDEST => {},
             // Pushes.
             opcode.PUSH1 => try self.pushN(1),
@@ -393,86 +417,39 @@ pub const Interpreter = struct {
             opcode.PUSH31 => try self.pushN(31),
             opcode.PUSH32 => try self.pushN(32),
             // Dups.
-            opcode.DUP1 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(1);
-            },
-            opcode.DUP2 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(2);
-            },
-            opcode.DUP3 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(3);
-            },
-            opcode.DUP4 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(4);
-            },
-            opcode.DUP5 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(5);
-            },
-            opcode.DUP6 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(6);
-            },
-            opcode.DUP7 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(7);
-            },
-            opcode.DUP8 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(8);
-            },
-            opcode.DUP9 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(9);
-            },
-            opcode.DUP10 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(10);
-            },
-            opcode.DUP11 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(11);
-            },
-            opcode.DUP12 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(12);
-            },
-            opcode.DUP13 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(13);
-            },
-            opcode.DUP14 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(14);
-            },
-            opcode.DUP15 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(15);
-            },
-            opcode.DUP16 => {
-                self.subGas(gas.VERYLOW);
-                self.inst_result = try self.stack.dup(16);
-            },
-            opcode.SWAP1 => {},
-            opcode.SWAP2 => {},
-            opcode.SWAP3 => {},
-            opcode.SWAP4 => {},
-            opcode.SWAP5 => {},
-            opcode.SWAP6 => {},
-            opcode.SWAP7 => {},
-            opcode.SWAP8 => {},
-            opcode.SWAP9 => {},
-            opcode.SWAP10 => {},
-            opcode.SWAP11 => {},
-            opcode.SWAP12 => {},
-            opcode.SWAP13 => {},
-            opcode.SWAP14 => {},
-            opcode.SWAP15 => {},
-            opcode.SWAP16 => {},
+            opcode.DUP1 => try self.dupN(1),
+            opcode.DUP2 => try self.dupN(2),
+            opcode.DUP3 => try self.dupN(3),
+            opcode.DUP4 => try self.dupN(4),
+            opcode.DUP5 => try self.dupN(5),
+            opcode.DUP6 => try self.dupN(6),
+            opcode.DUP7 => try self.dupN(7),
+            opcode.DUP8 => try self.dupN(8),
+            opcode.DUP9 => try self.dupN(9),
+            opcode.DUP10 => try self.dupN(10),
+            opcode.DUP11 => try self.dupN(11),
+            opcode.DUP12 => try self.dupN(12),
+            opcode.DUP13 => try self.dupN(13),
+            opcode.DUP14 => try self.dupN(14),
+            opcode.DUP15 => try self.dupN(15),
+            opcode.DUP16 => try self.dupN(16),
+            // Swaps.
+            opcode.SWAP1 => try self.swapN(1),
+            opcode.SWAP2 => try self.swapN(2),
+            opcode.SWAP3 => try self.swapN(3),
+            opcode.SWAP4 => try self.swapN(4),
+            opcode.SWAP5 => try self.swapN(5),
+            opcode.SWAP6 => try self.swapN(6),
+            opcode.SWAP7 => try self.swapN(7),
+            opcode.SWAP8 => try self.swapN(8),
+            opcode.SWAP9 => try self.swapN(9),
+            opcode.SWAP10 => try self.swapN(10),
+            opcode.SWAP11 => try self.swapN(11),
+            opcode.SWAP12 => try self.swapN(12),
+            opcode.SWAP13 => try self.swapN(13),
+            opcode.SWAP14 => try self.swapN(14),
+            opcode.SWAP15 => try self.swapN(15),
+            opcode.SWAP16 => try self.swapN(16),
             opcode.LOG0 => {},
             opcode.LOG1 => {},
             opcode.LOG2 => {},
