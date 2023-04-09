@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const opcode = @import("opcode.zig");
 const gas = @import("gas.zig");
+const host = @import("host.zig");
 const int = std.math.big.int;
 
 pub fn main() !void {
@@ -19,16 +20,17 @@ pub fn main() !void {
         opcode.DUP1,
         opcode.SUB,
         opcode.ISZERO,
+        opcode.ADDRESS,
         opcode.STOP,
     };
     std.debug.print("input bytecode 0x{x}\n", .{
         std.fmt.fmtSliceHexLower(&bytecode),
     });
-    var interpreter = try Interpreter.init(ac, &bytecode);
+    var mock_host = host.Mock.init();
+    var interpreter = try Interpreter.init(ac, mock_host, &bytecode);
     defer interpreter.deinit() catch std.debug.print("failed", .{});
     try interpreter.runLoop();
     std.debug.print("Finished, result {}\n", .{interpreter.inst_result});
-
 }
 
 pub const Status = enum {
@@ -93,15 +95,18 @@ pub const Interpreter = struct {
     inst: [*]u8,
     gas_tracker: gas.Tracker,
     bytecode: []u8,
+    eth_host: host.Mock,
     stack: Stack(int.Managed),
     inst_result: Status,
     // TODO: Validate inputs.
     fn init(
         alloc: std.mem.Allocator,
+        eth_host: host.Mock,
         bytecode: []u8,
     ) !This {
         return .{
             .ac = alloc,
+            .eth_host = eth_host,
             .inst = bytecode.ptr,
             .bytecode = bytecode,
             .stack = try Stack(int.Managed).init(alloc),
@@ -250,17 +255,65 @@ pub const Interpreter = struct {
                 try self.stack.push(x);
                 a.deinit();
             },
-            opcode.AND => {},
-            opcode.OR => {},
-            opcode.XOR => {},
-            opcode.NOT => {},
+            opcode.AND => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var r = try int.Managed.init(self.ac);
+                try r.bitAnd(&a, &b);
+                try self.stack.push(r);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.OR => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var r = try int.Managed.init(self.ac);
+                try r.bitOr(&a, &b);
+                try self.stack.push(r);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.XOR => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var r = try int.Managed.init(self.ac);
+                try r.bitXor(&a, &b);
+                try self.stack.push(r);
+                a.deinit();
+                b.deinit();
+            },
+            opcode.NOT => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var r = try int.Managed.init(self.ac);
+                try r.bitNotWrap(&a, .unsigned, 256);
+                try self.stack.push(r);
+                a.deinit();
+            },
             opcode.BYTE => {},
             opcode.SHL => {},
             opcode.SHR => {},
             opcode.SAR => {},
             opcode.SHA3 => {},
-            opcode.ADDRESS => {},
-            opcode.BALANCE => {},
+            opcode.ADDRESS => {
+                self.subGas(gas.HIGH);
+                const addr = try self.eth_host.address();
+                var addr_bytes = std.fmt.bytesToHex(addr, .lower);
+                var r = try int.Managed.init(self.ac);
+                try r.setString(10, &addr_bytes);
+                try self.stack.push(r);
+            },
+            opcode.BALANCE => {
+                self.subGas(gas.HIGH);
+                const balance = try self.eth_host.balance();
+                var balance_bytes = std.fmt.bytesToHex(balance, .lower);
+                var r = try int.Managed.init(self.ac);
+                try r.setString(10, &balance_bytes);
+                try self.stack.push(r);
+            },
             opcode.ORIGIN => {},
             opcode.CALLER => {},
             opcode.CALLVALUE => {},
@@ -603,18 +656,10 @@ pub const Interpreter = struct {
             opcode.SWAP14 => {},
             opcode.SWAP15 => {},
             opcode.SWAP16 => {},
-            opcode.LOG0 => {
-
-            },
-            opcode.LOG1 => {
-
-            },
-            opcode.LOG2 => {
-
-            },
-            opcode.LOG3 => {
-
-            },
+            opcode.LOG0 => {},
+            opcode.LOG1 => {},
+            opcode.LOG2 => {},
+            opcode.LOG3 => {},
             opcode.CREATE => {},
             opcode.CALL => {},
             opcode.CALLCODE => {},
