@@ -135,6 +135,13 @@ pub const Interpreter = struct {
             self.inst_result = Status.OutOfGas;
         }
     }
+    fn pushN(self: *This, n: u8) !void {
+        self.subGas(gas.VERYLOW);
+        const start = @ptrCast(*u8, self.inst + n);
+        var x = try int.Managed.initSet(self.ac, start.*);
+        try self.stack.push(x);
+        self.inst += n;
+    }
     fn eval(self: *This, op: u8) !void {
         switch (op) {
             // Control.
@@ -353,228 +360,38 @@ pub const Interpreter = struct {
             opcode.GAS => {},
             opcode.JUMPDEST => {},
             // Pushes.
-            opcode.PUSH1 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            opcode.PUSH2 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH3 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH4 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH5 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH6 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH7 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH8 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH9 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH10 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH11 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH12 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH13 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH14 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH15 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH16 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH17 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH18 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH19 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH20 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH21 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH22 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH23 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH24 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH25 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH26 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH27 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH28 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH29 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH30 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH31 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
-            // Pushes.
-            opcode.PUSH32 => {
-                const start = @ptrCast(*u8, self.inst + 1);
-                var x = try int.Managed.initSet(self.ac, start.*);
-                try self.stack.push(x);
-                self.inst += 1;
-            },
+            opcode.PUSH1 => try self.pushN(1),
+            opcode.PUSH2 => try self.pushN(2),
+            opcode.PUSH3 => try self.pushN(3),
+            opcode.PUSH4 => try self.pushN(4),
+            opcode.PUSH5 => try self.pushN(5),
+            opcode.PUSH6 => try self.pushN(6),
+            opcode.PUSH7 => try self.pushN(7),
+            opcode.PUSH8 => try self.pushN(8),
+            opcode.PUSH9 => try self.pushN(9),
+            opcode.PUSH10 => try self.pushN(10),
+            opcode.PUSH11 => try self.pushN(11),
+            opcode.PUSH12 => try self.pushN(12),
+            opcode.PUSH13 => try self.pushN(13),
+            opcode.PUSH14 => try self.pushN(14),
+            opcode.PUSH15 => try self.pushN(15),
+            opcode.PUSH16 => try self.pushN(16),
+            opcode.PUSH17 => try self.pushN(17),
+            opcode.PUSH18 => try self.pushN(18),
+            opcode.PUSH19 => try self.pushN(19),
+            opcode.PUSH20 => try self.pushN(20),
+            opcode.PUSH21 => try self.pushN(21),
+            opcode.PUSH22 => try self.pushN(22),
+            opcode.PUSH23 => try self.pushN(23),
+            opcode.PUSH24 => try self.pushN(24),
+            opcode.PUSH25 => try self.pushN(25),
+            opcode.PUSH26 => try self.pushN(26),
+            opcode.PUSH27 => try self.pushN(27),
+            opcode.PUSH28 => try self.pushN(28),
+            opcode.PUSH29 => try self.pushN(29),
+            opcode.PUSH30 => try self.pushN(30),
+            opcode.PUSH31 => try self.pushN(31),
+            opcode.PUSH32 => try self.pushN(32),
             // Dups.
             opcode.DUP1 => {
                 self.subGas(gas.VERYLOW);
