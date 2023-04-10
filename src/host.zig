@@ -1,9 +1,8 @@
 const std = @import("std");
 const Status = @import("main.zig").Status;
 const GasTracker = @import("gas.zig").Tracker;
-const BigInt = std.math.big.int.Managed;
 const Hash = [32]u8;
-const Address = [20]u8;
+const Address = u160;
 
 /// Environment data for the host, such as block, transaction, and chain
 /// configuration values at the time of the execution.
@@ -35,18 +34,18 @@ pub const Fork = enum {
 };
 
 pub const ChainEnv = struct {
-    chain_id: BigInt,
+    chain_id: u256,
     memory_limit: u64,
     fork: Fork,
 };
 
 pub const BlockEnv = struct {
-    number: BigInt,
+    number: u256,
     coinbase: Address,
     timestamp: u64,
-    difficulty: BigInt,
+    difficulty: u256,
     prev_randao: ?Hash,
-    basefee: BigInt,
+    basefee: u256,
     gas_limit: u64,
 };
 
@@ -54,8 +53,8 @@ pub const TxEnv = struct {
     caller: Address,
     gas_limit: u64,
     gas_price: u64,
-    gas_priority_fee: ?BigInt,
-    value: BigInt,
+    gas_priority_fee: ?u256,
+    value: u256,
     data: []u8,
     chain_id: ?u64,
     nonce: ?u64,
@@ -81,9 +80,9 @@ pub const AccountLoadResult = struct {
 };
 
 pub const SStoreResult = struct {
-    original: BigInt,
-    present: BigInt,
-    new: BigInt,
+    original: u256,
+    present: u256,
+    new: u256,
     is_cold: bool,
 };
 
@@ -102,8 +101,8 @@ pub const CreateScheme = enum {
 pub const CreateInputs = struct {
     caller: Address,
     scheme: CreateScheme,
-    salt: ?BigInt,
-    value: BigInt,
+    salt: ?u256,
+    value: u256,
     init_code: []u8,
     gas_limit: u64,
 };
@@ -118,7 +117,7 @@ pub const CreateResult = struct {
 pub const Transfer = struct {
     source: Address,
     target: Address,
-    value: BigInt,
+    value: u256,
 };
 
 pub const CallScheme = enum {
@@ -137,7 +136,7 @@ pub const CallContext = struct {
     /// The address the contract code was loaded from, if any.
     code_address: ?Address,
     /// Apparent value of the EVM.
-    apparent_value: BigInt,
+    apparent_value: u256,
     /// The scheme used for the call.
     scheme: CallScheme,
 };
@@ -167,12 +166,12 @@ pub const HostError = error{ Internal, Unimplemented };
 pub const Host = struct {
     envFn: *const fn (ptr: *Host) HostError!Env,
     loadAccountFn: *const fn (ptr: *Host, address: Address) HostError!?AccountLoadResult,
-    blockHashFn: *const fn (ptr: *Host, number: BigInt) HostError!?Hash,
-    balanceFn: *const fn (ptr: *Host, address: Address) HostError!?HostResult(BigInt),
+    blockHashFn: *const fn (ptr: *Host, number: u256) HostError!?Hash,
+    balanceFn: *const fn (ptr: *Host, address: Address) HostError!?HostResult(u256),
     codeFn: *const fn (ptr: *Host) HostError!?HostResult([]u8),
     codeHashFn: *const fn (ptr: *Host) HostError!?HostResult(Hash),
-    sloadFn: *const fn (ptr: *Host, address: Address, index: BigInt) HostError!?HostResult(BigInt),
-    sstoreFn: *const fn (ptr: *Host, address: Address, index: BigInt, value: BigInt) HostError!?SStoreResult,
+    sloadFn: *const fn (ptr: *Host, address: Address, index: u256) HostError!?HostResult(u256),
+    sstoreFn: *const fn (ptr: *Host, address: Address, index: u256, value: u256) HostError!?SStoreResult,
     logFn: *const fn (ptr: *Host, address: Address, topics: []Hash, data: []u8) HostError!void,
     selfDestructFn: *const fn (ptr: *Host, address: Address, target: Address) HostError!?SelfDestructResult,
     createFn: *const fn (self: *Host, inputs: CreateInputs) HostError!?CreateResult,
@@ -183,10 +182,10 @@ pub const Host = struct {
     pub fn loadAccount(self: *Host, address: Address) !?AccountLoadResult {
         return self.loadAccountFn(self, address);
     }
-    pub fn blockHash(self: *Host, number: BigInt) !?Hash {
+    pub fn blockHash(self: *Host, number: u256) !?Hash {
         return self.blockHashFn(self, number);
     }
-    pub fn balance(self: *Host, address: Address) !?HostResult(BigInt) {
+    pub fn balance(self: *Host, address: Address) !?HostResult(u256) {
         return self.balanceFn(self, address);
     }
     pub fn code(self: *Host) !?HostResult([]u8) {
@@ -195,14 +194,14 @@ pub const Host = struct {
     pub fn codeHash(self: *Host) !?HostResult(Hash) {
         return self.codeHashFn(self);
     }
-    pub fn sload(self: *Host, address: Address, index: BigInt) !?HostResult(BigInt) {
+    pub fn sload(self: *Host, address: Address, index: u256) !?HostResult(u256) {
         return self.sloadFn(self, address, index);
     }
     pub fn sstore(
         self: *Host,
         address: Address,
-        index: BigInt,
-        value: BigInt,
+        index: u256,
+        value: u256,
     ) !?SStoreResult {
         return self.sstoreFn(self, address, index, value);
     }
@@ -244,11 +243,11 @@ pub const Mock = struct {
                 const self = @fieldParentPtr(Mock, "host", ptr);
                 return self.loadAccount(address);
             }
-            pub fn blockHash(ptr: *Host, number: BigInt) HostError!?Hash {
+            pub fn blockHash(ptr: *Host, number: u256) HostError!?Hash {
                 const self = @fieldParentPtr(Mock, "host", ptr);
                 return self.blockHash(number);
             }
-            pub fn balance(ptr: *Host, address: Address) HostError!?HostResult(BigInt) {
+            pub fn balance(ptr: *Host, address: Address) HostError!?HostResult(u256) {
                 const self = @fieldParentPtr(Mock, "host", ptr);
                 return self.balance(address);
             }
@@ -260,11 +259,11 @@ pub const Mock = struct {
                 const self = @fieldParentPtr(Mock, "host", ptr);
                 return self.codeHash();
             }
-            pub fn sload(ptr: *Host, address: Address, index: BigInt) HostError!?HostResult(BigInt) {
+            pub fn sload(ptr: *Host, address: Address, index: u256) HostError!?HostResult(u256) {
                 const self = @fieldParentPtr(Mock, "host", ptr);
                 return self.sload(address, index);
             }
-            pub fn sstore(ptr: *Host, address: Address, index: BigInt, value: BigInt) HostError!?SStoreResult {
+            pub fn sstore(ptr: *Host, address: Address, index: u256, value: u256) HostError!?SStoreResult {
                 const self = @fieldParentPtr(Mock, "host", ptr);
                 return self.sstore(address, index, value);
             }
@@ -311,12 +310,12 @@ pub const Mock = struct {
         _ = self;
         return HostError.Unimplemented;
     }
-    pub fn blockHash(self: *Mock, number: BigInt) !?Hash {
+    pub fn blockHash(self: *Mock, number: u256) !?Hash {
         _ = number;
         _ = self;
         return HostError.Unimplemented;
     }
-    pub fn balance(self: *Mock, address: Address) !?HostResult(BigInt) {
+    pub fn balance(self: *Mock, address: Address) !?HostResult(u256) {
         _ = address;
         _ = self;
         return HostError.Unimplemented;
@@ -329,7 +328,7 @@ pub const Mock = struct {
         _ = self;
         return HostError.Unimplemented;
     }
-    pub fn sload(self: *Mock, address: Address, index: BigInt) !?HostResult(BigInt) {
+    pub fn sload(self: *Mock, address: Address, index: u256) !?HostResult(u256) {
         _ = index;
         _ = address;
         _ = self;
@@ -338,8 +337,8 @@ pub const Mock = struct {
     pub fn sstore(
         self: *Mock,
         address: Address,
-        index: BigInt,
-        value: BigInt,
+        index: u256,
+        value: u256,
     ) !?SStoreResult {
         _ = value;
         _ = index;
