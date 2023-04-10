@@ -357,3 +357,72 @@ pub const Interpreter = struct {
         }
     }
 };
+
+// Insanely fast arena allocator for a single type using a memory pool.
+fn TurboPool(comptime T: type) type {
+    return struct {
+        const Self = @This();
+        const List = std.TailQueue(T);
+        arena: std.heap.ArenaAllocator,
+        free: List = .{},
+
+        pub fn init(allocator: std.mem.Allocator) Self {
+            return .{
+                .arena = std.heap.ArenaAllocator.init(allocator),
+            };
+        }
+        pub fn deinit(self: *Self) void {
+            self.arena.deinit();
+        }
+        pub fn new(self: *Self) !*T {
+            const obj = if (self.free.popFirst()) |item|
+                item
+            else
+                try self.arena.allocator().create(List.Node);
+            return &obj.data;
+        }
+        pub fn delete(self: *Self, obj: *T) void {
+            const node = @fieldParentPtr(List.Node, "data", obj);
+            self.free.append(node);
+        }
+    };
+}
+
+// TODO: Build the host structs here!
+const DB = struct {
+    getFn: *const fn (ptr: *DB) void,
+    numInputsFn: *const fn (ptr: *DB) void,
+    pub fn get(self: *DB) void {
+        self.getFn(self);
+    }
+    pub fn numInputs(self: *DB) void {
+        self.numInputsFn(self);
+    }
+};
+
+const SimpleDB = struct {
+    db: DB,
+    pub fn init() SimpleDB {
+        const impl = struct {
+            pub fn get(ptr: *DB) void {
+                const self = @fieldParentPtr(SimpleDB, "db", ptr);
+                self.get();
+            }
+            pub fn numInputs(ptr: *DB) void {
+                const self = @fieldParentPtr(SimpleDB, "db", ptr);
+                self.numInputs();
+            }
+        };
+        return .{
+            .db = .{ .getFn = impl.get, .numInputsFn = impl.numInputs },
+        };
+    }
+    pub fn get(self: *SimpleDB) void {
+        _ = self;
+        std.debug.print("get", .{});
+    }
+    pub fn numInputs(self: *SimpleDB) void {
+        _ = self;
+        std.debug.print("numInputs", .{});
+    }
+};
