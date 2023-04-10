@@ -158,49 +158,185 @@ pub const CallResult = struct {
     data: []u8,
 };
 
-// TODO: Build the host structs here!
+pub const HostError = error{ Internal, Unimplemented };
+
+/// Host defines an interface for an Ethereum node host that can perform actions required by EVM opcodes
+/// such as retrieving environment values, interacting with accounts, and performing
+/// expensive operations such as sstore, create, and create2. Cross-contract calls
+/// are also performed via the host.
 pub const Host = struct {
-    getFn: *const fn (ptr: *Host) void,
-    numInputsFn: *const fn (ptr: *Host) void,
-    pub fn get(self: *Host) void {
-        self.getFn(self);
-    }
-    pub fn numInputs(self: *Host) void {
-        self.numInputsFn(self);
-    }
+    envFn: *const fn (ptr: *Host) HostError!Env,
+    loadAccountFn: *const fn (ptr: *Host, address: Address) HostError!?AccountLoadResult,
+    blockHashFn: *const fn (ptr: *Host, number: BigInt) HostError!?Hash,
+    balanceFn: *const fn (ptr: *Host, address: Address) HostError!?HostResult(BigInt),
+    codeFn: *const fn (ptr: *Host) HostError!?HostResult([]u8),
+    codeHashFn: *const fn (ptr: *Host) HostError!?HostResult(Hash),
+    sloadFn: *const fn (ptr: *Host, address: Address, index: BigInt) HostError!?HostResult(BigInt),
+    sstoreFn: *const fn (ptr: *Host, address: Address, index: BigInt, value: BigInt) HostError!?SStoreResult,
+    logFn: *const fn (ptr: *Host, address: Address, topics: []Hash, data: []u8) HostError!void,
+    selfDestructFn: *const fn (ptr: *Host, address: Address, target: Address) HostError!?SelfDestructResult,
+    createFn: *const fn (self: *Host, inputs: CreateInputs) HostError!?CreateResult,
+    callFn: *const fn (self: *Host, inputs: CallInputs) HostError!?CallResult,
     pub fn env(self: *Host) !Env {
-        _ = self;
-        return null;
+        return self.envFn(self);
     }
     pub fn loadAccount(self: *Host, address: Address) !?AccountLoadResult {
-        _ = address;
-        _ = self;
-        return null;
+        return self.loadAccountFn(self, address);
     }
     pub fn blockHash(self: *Host, number: BigInt) !?Hash {
-        _ = number;
-        _ = self;
-        return null;
+        return self.blockHashFn(self, number);
     }
     pub fn balance(self: *Host, address: Address) !?HostResult(BigInt) {
-        _ = address;
-        _ = self;
-        return null;
+        return self.balanceFn(self, address);
     }
     pub fn code(self: *Host) !?HostResult([]u8) {
-        _ = self;
-        return null;
+        return self.codeFn(self);
     }
     pub fn codeHash(self: *Host) !?HostResult(Hash) {
-        _ = self;
-        return null;
+        return self.codeHashFn(self);
     }
-    pub fn sload(self: *Host) !?HostResult(Hash) {
-        _ = self;
-        return null;
+    pub fn sload(self: *Host, address: Address, index: BigInt) !?HostResult(BigInt) {
+        return self.sloadFn(self, address, index);
     }
     pub fn sstore(
         self: *Host,
+        address: Address,
+        index: BigInt,
+        value: BigInt,
+    ) !?SStoreResult {
+        return self.sstoreFn(self, address, index, value);
+    }
+    pub fn log(
+        self: *Host,
+        address: Address,
+        topics: []Hash,
+        data: []u8,
+    ) !void {
+        return self.logFn(self, address, topics, data);
+    }
+    pub fn selfDestruct(
+        self: *Host,
+        address: Address,
+        target: Address,
+    ) !?SelfDestructResult {
+        return self.selfDestructFn(self, address, target);
+    }
+    pub fn create(self: *Host, inputs: CreateInputs) !?CreateResult {
+        return self.createFn(self, inputs);
+    }
+    pub fn call(self: *Host, inputs: CallInputs) !?CallResult {
+        return self.callFn(self, inputs);
+    }
+};
+
+// TODO: Build a real host via the Rust FFI boundary.
+
+/// Defines a mock host for testing purposes.
+pub const Mock = struct {
+    host: Host,
+    pub fn init() Mock {
+        const impl = struct {
+            pub fn env(ptr: *Host) HostError!Env {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.env();
+            }
+            pub fn loadAccount(ptr: *Host, address: Address) HostError!?AccountLoadResult {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.loadAccount(address);
+            }
+            pub fn blockHash(ptr: *Host, number: BigInt) HostError!?Hash {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.blockHash(number);
+            }
+            pub fn balance(ptr: *Host, address: Address) HostError!?HostResult(BigInt) {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.balance(address);
+            }
+            pub fn code(ptr: *Host) HostError!?HostResult([]u8) {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.code();
+            }
+            pub fn codeHash(ptr: *Host) HostError!?HostResult(Hash) {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.codeHash();
+            }
+            pub fn sload(ptr: *Host, address: Address, index: BigInt) HostError!?HostResult(BigInt) {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.sload(address, index);
+            }
+            pub fn sstore(ptr: *Host, address: Address, index: BigInt, value: BigInt) HostError!?SStoreResult {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.sstore(address, index, value);
+            }
+            pub fn log(ptr: *Host, address: Address, topics: []Hash, data: []u8) HostError!void {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.log(address, topics, data);
+            }
+            pub fn selfDestruct(ptr: *Host, address: Address, target: Address) HostError!?SelfDestructResult {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.selfDestruct(address, target);
+            }
+            pub fn create(ptr: *Host, inputs: CreateInputs) HostError!?CreateResult {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.create(inputs);
+            }
+            pub fn call(ptr: *Host, inputs: CallInputs) HostError!?CallResult {
+                const self = @fieldParentPtr(Mock, "host", ptr);
+                return self.call(inputs);
+            }
+        };
+        return .{
+            .host = .{
+                .envFn = impl.env,
+                .loadAccountFn = impl.loadAccount,
+                .blockHashFn = impl.blockHash,
+                .balanceFn = impl.balance,
+                .codeFn = impl.code,
+                .codeHashFn = impl.codeHash,
+                .sloadFn = impl.sload,
+                .sstoreFn = impl.sstore,
+                .logFn = impl.log,
+                .selfDestructFn = impl.selfDestruct,
+                .createFn = impl.create,
+                .callFn = impl.call,
+            },
+        };
+    }
+    pub fn env(self: *Mock) !Env {
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn loadAccount(self: *Mock, address: Address) !?AccountLoadResult {
+        _ = address;
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn blockHash(self: *Mock, number: BigInt) !?Hash {
+        _ = number;
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn balance(self: *Mock, address: Address) !?HostResult(BigInt) {
+        _ = address;
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn code(self: *Mock) !?HostResult([]u8) {
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn codeHash(self: *Mock) !?HostResult(Hash) {
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn sload(self: *Mock, address: Address, index: BigInt) !?HostResult(BigInt) {
+        _ = index;
+        _ = address;
+        _ = self;
+        return HostError.Unimplemented;
+    }
+    pub fn sstore(
+        self: *Mock,
         address: Address,
         index: BigInt,
         value: BigInt,
@@ -209,10 +345,10 @@ pub const Host = struct {
         _ = index;
         _ = address;
         _ = self;
-        return null;
+        return HostError.Unimplemented;
     }
     pub fn log(
-        self: *Host,
+        self: *Mock,
         address: Address,
         topics: []Hash,
         data: []u8,
@@ -221,50 +357,26 @@ pub const Host = struct {
         _ = topics;
         _ = address;
         _ = self;
+        return HostError.Unimplemented;
     }
-    pub fn selfdestruct(
-        self: *Host,
+    pub fn selfDestruct(
+        self: *Mock,
         address: Address,
         target: Address,
     ) !?SelfDestructResult {
         _ = target;
         _ = address;
         _ = self;
+        return HostError.Unimplemented;
     }
-    pub fn create(self: *Host, inputs: CreateInputs) !?CreateResult {
+    pub fn create(self: *Mock, inputs: CreateInputs) !?CreateResult {
         _ = inputs;
         _ = self;
+        return HostError.Unimplemented;
     }
-    pub fn call(self: *Host, inputs: CallInputs) !?CallResult {
+    pub fn call(self: *Mock, inputs: CallInputs) !?CallResult {
         _ = inputs;
         _ = self;
-    }
-};
-
-// TODO: Build a real host via the Rust FFI boundary.
-pub const Mock = struct {
-    db: Host,
-    pub fn init() Mock {
-        const impl = struct {
-            pub fn get(ptr: *Host) void {
-                const self = @fieldParentPtr(Mock, "db", ptr);
-                self.get();
-            }
-            pub fn numInputs(ptr: *Host) void {
-                const self = @fieldParentPtr(Mock, "db", ptr);
-                self.numInputs();
-            }
-        };
-        return .{
-            .db = .{ .getFn = impl.get, .numInputsFn = impl.numInputs },
-        };
-    }
-    pub fn get(self: *Mock) void {
-        _ = self;
-        std.debug.print("get", .{});
-    }
-    pub fn numInputs(self: *Mock) void {
-        _ = self;
-        std.debug.print("numInputs", .{});
+        return HostError.Unimplemented;
     }
 };

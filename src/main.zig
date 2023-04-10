@@ -28,8 +28,8 @@ pub fn main() !void {
     std.debug.print("input bytecode 0x{x}\n", .{
         std.fmt.fmtSliceHexLower(&bytecode),
     });
-    var mock_host = host.Mock.init();
-    var interpreter = try Interpreter.init(ac, mock_host, &bytecode);
+    var mock = host.Mock.init();
+    var interpreter = try Interpreter.init(ac, mock.host, &bytecode);
     defer interpreter.deinit() catch std.debug.print("failed", .{});
 
     const start = try std.time.Instant.now();
@@ -105,19 +105,23 @@ fn Stack(comptime T: type) type {
     };
 }
 
+pub const InterpreterError = error{
+    DisallowedHostCall,
+};
+
 pub const Interpreter = struct {
     const This = @This();
     ac: std.mem.Allocator,
     inst: [*]u8,
     gas_tracker: gas.Tracker,
     bytecode: []u8,
-    eth_host: host.Mock,
+    eth_host: host.Host,
     stack: Stack(int.Managed),
     inst_result: Status,
     // TODO: Validate inputs.
     fn init(
         alloc: std.mem.Allocator,
-        eth_host: host.Mock,
+        eth_host: host.Host,
         bytecode: []u8,
     ) !This {
         return .{
@@ -330,12 +334,16 @@ pub const Interpreter = struct {
             opcode.SAR => {},
             opcode.SHA3 => {},
             opcode.ADDRESS => {
-                // self.subGas(gas.HIGH);
-                // const addr = try self.eth_host.address();
-                // var addr_bytes = std.fmt.bytesToHex(addr, .lower);
-                // var r = try int.Managed.init(self.ac);
-                // try r.setString(10, &addr_bytes);
-                // try self.stack.push(r);
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                const addr = switch (env.tx.purpose) {
+                    .Call => |address| address,
+                    else => return InterpreterError.DisallowedHostCall,
+                };
+                var addr_bytes = std.fmt.bytesToHex(addr, .lower);
+                var r = try int.Managed.init(self.ac);
+                try r.setString(10, &addr_bytes);
+                try self.stack.push(r);
             },
             opcode.BALANCE => {
                 // self.subGas(gas.HIGH);
