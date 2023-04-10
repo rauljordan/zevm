@@ -5,6 +5,67 @@ const BigInt = std.math.big.int.Managed;
 const Hash = [32]u8;
 const Address = [20]u8;
 
+/// Environment data for the host, such as block, transaction, and chain
+/// configuration values at the time of the execution.
+pub const Env = struct {
+    chain: ChainEnv,
+    block: BlockEnv,
+    tx: TxEnv,
+};
+
+/// The current hard fork the chain environment is on.
+pub const Fork = enum {
+    Frontier,
+    FrontierThawing,
+    Homestead,
+    Dao,
+    Tangerine,
+    SpuriousDragon,
+    Byzantium,
+    Constantinople,
+    Petersburg,
+    Istambul,
+    MuirGlacier,
+    Berlin,
+    London,
+    ArrowGlacier,
+    GrayGlacier,
+    Merge,
+    Shanghai,
+};
+
+pub const ChainEnv = struct {
+    chain_id: BigInt,
+    memory_limit: u64,
+    fork: Fork,
+};
+
+pub const BlockEnv = struct {
+    number: BigInt,
+    coinbase: Address,
+    timestamp: u64,
+    difficulty: BigInt,
+    prev_randao: ?Hash,
+    basefee: BigInt,
+    gas_limit: u64,
+};
+
+pub const TxEnv = struct {
+    caller: Address,
+    gas_limit: u64,
+    gas_price: u64,
+    gas_priority_fee: ?BigInt,
+    value: BigInt,
+    data: []u8,
+    chain_id: ?u64,
+    nonce: ?u64,
+    // TODO: Add access list?
+    purpose: union(enum) {
+        Call: Address,
+        Create: CreateScheme,
+    },
+};
+
 /// Returns a result from a host call, which will include
 /// data and a boolean indicating whether the data was cold loaded.
 fn HostResult(comptime T: type) type {
@@ -106,6 +167,10 @@ pub const Host = struct {
     }
     pub fn numInputs(self: *Host) void {
         self.numInputsFn(self);
+    }
+    pub fn env(self: *Host) !Env {
+        _ = self;
+        return null;
     }
     pub fn loadAccount(self: *Host, address: Address) !?AccountLoadResult {
         _ = address;
