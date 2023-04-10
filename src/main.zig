@@ -8,9 +8,12 @@ const BigInt = std.math.big.int.Managed;
 const MAX_CODE_SIZE: usize = 0x6000;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var ac = gpa.allocator();
-    defer _ = gpa.deinit();
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // var ac = gpa.allocator();
+    // defer _ = gpa.deinit();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    var ac = arena.allocator();
+    defer _ = arena.deinit();
 
     // TODO: Allocate a fixed buffer for the stack!
     var bytecode = [_]u8{
