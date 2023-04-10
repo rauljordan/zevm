@@ -29,9 +29,10 @@ zig run src/main.zig
 
 ## TODOs
 
-- [ ] Arithmetic opcodes
-- [ ] Stack manipulation opcodes
+- [x] Arithmetic opcodes
+- [x] Stack manipulation opcodes
 - [ ] Control flow opcodes
+- [x] Host defined
 - [ ] Host opcodes 
 - [ ] Passing spec tests
 - [ ] Benchmarks
