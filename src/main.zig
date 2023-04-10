@@ -21,7 +21,8 @@ pub fn main() !void {
         opcode.EXP,
         opcode.DUP1,
         opcode.ADD,
-        opcode.BALANCE,
+        opcode.DUP1,
+        opcode.EXP,
         opcode.STOP,
     };
     std.debug.print("input bytecode 0x{x}\n", .{
