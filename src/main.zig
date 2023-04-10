@@ -15,6 +15,8 @@ pub fn main() !void {
     var ac = arena.allocator();
     defer _ = arena.deinit();
 
+    // TODO: Use turbopool defined in this file to go even faster.
+
     // TODO: Allocate a fixed buffer for the stack!
     var bytecode = [_]u8{
         opcode.PUSH1,
