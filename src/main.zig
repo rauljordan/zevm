@@ -5,6 +5,8 @@ const gas = @import("gas.zig");
 const host = @import("host.zig");
 const int = std.math.big.int;
 
+const MAX_CODE_SIZE: usize = 0x6000;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var ac = gpa.allocator();
@@ -42,6 +44,8 @@ test "Stack manipulation opcodes" {}
 test "Control flow opcodes" {}
 test "Host opcodes" {}
 
+pub const StackErr = error{ Underflow, Overflow };
+
 pub const Status = enum {
     Break,
     Continue,
@@ -49,8 +53,6 @@ pub const Status = enum {
     StackUnderflow,
     StackOverflow,
 };
-
-pub const StackErr = error{ Underflow, Overflow };
 
 // TODO: Impl safe stack.
 fn Stack(comptime T: type) type {
