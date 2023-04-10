@@ -13,8 +13,7 @@ as possible thanks to Zig's focus on having developers carefully
 manage memory and with runtime safety checks for memory usage and
 arithmetic operations.
 
-zEVM aims to be the fastest EVM implementation, as it also leverages
-Zig's `comptime` feature as much as possible.
+zEVM will aim to be the most memory efficient and fastest EVM implementation.
 
 Rust bindings will be provided for zEVM.
 
