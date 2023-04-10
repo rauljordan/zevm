@@ -21,8 +21,7 @@ pub fn main() !void {
         opcode.EXP,
         opcode.DUP1,
         opcode.ADD,
-        opcode.ISZERO,
-        opcode.PC,
+        opcode.BALANCE,
         opcode.STOP,
     };
     std.debug.print("input bytecode 0x{x}\n", .{
@@ -353,51 +352,49 @@ pub const Interpreter = struct {
                 self.subGas(gas.LOW);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
-                var x = try BigInt.initSet(self.ac, b);
-                defer x.deinit();
-                const rhs = try x.to(u8);
+                const rhs = @truncate(u8, b);
                 try self.stack.push(a << rhs);
             },
             opcode.SHR => {
                 self.subGas(gas.LOW);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
-                var x = try BigInt.initSet(self.ac, b);
-                defer x.deinit();
-                const rhs = try x.to(u8);
+                const rhs = @truncate(u8, b);
                 try self.stack.push(a >> rhs);
             },
             opcode.SAR => {},
             opcode.SHA3 => {},
             opcode.ADDRESS => {
-                // self.subGas(gas.HIGH);
-                // const env = try self.eth_host.env();
-                // const addr = switch (env.tx.purpose) {
-                //     .Call => |address| address,
-                //     else => return InterpreterError.DisallowedHostCall,
-                // };
-                // var addr_bytes = std.fmt.bytesToHex(addr, .lower);
-                // var r = try int.Managed.init(self.ac);
-                // try r.setString(10, &addr_bytes);
-                // try self.stack.push(r);
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                const addr = switch (env.tx.purpose) {
+                    .Call => |address| address,
+                    else => return InterpreterError.DisallowedHostCall,
+                };
+                try self.stack.push(@as(u256, addr));
             },
             opcode.BALANCE => {
-                // self.subGas(gas.HIGH);
-                // var a = self.stack.pop();
-                // defer a.deinit();
-                // const addr = try a.toString(self.ac, 10, .lower);
-                // defer self.ac.free(addr);
-                // std.debug.print("{s}\n", .{addr});
-                // const result = try self.eth_host.balance(addr);
-                // const balance = if (result) |r|
-                //     r.data
-                // else
-                //     try int.Managed.init(self.ac);
-                // try self.stack.push(balance);
+                self.subGas(gas.HIGH);
+                var a = self.stack.pop();
+                const addr = @truncate(u160, a);
+                const result = try self.eth_host.balance(addr);
+                const balance = if (result) |r|
+                    r.data
+                else
+                    0;
+                try self.stack.push(balance);
             },
             opcode.ORIGIN => {},
-            opcode.CALLER => {},
-            opcode.CALLVALUE => {},
+            opcode.CALLER => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(@as(u256, env.tx.caller));
+            },
+            opcode.CALLVALUE => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.tx.value);
+            },
             opcode.CALLDATALOAD => {},
             opcode.CALLDATASIZE => {},
             opcode.CALLDATACOPY => {},

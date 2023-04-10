@@ -69,8 +69,15 @@ pub const TxEnv = struct {
 /// data and a boolean indicating whether the data was cold loaded.
 fn HostResult(comptime T: type) type {
     return struct {
+        const Self = @This();
         data: T,
         is_cold_loaded: bool,
+        pub fn init(d: T, is_cold: bool) Self {
+            return .{
+                .data = d,
+                .is_cold_loaded = is_cold,
+            };
+        }
     };
 }
 
@@ -303,7 +310,33 @@ pub const Mock = struct {
     }
     pub fn env(self: *Mock) !Env {
         _ = self;
-        return HostError.Unimplemented;
+        return .{
+            .chain = .{
+                .chain_id = 1,
+                .memory_limit = 100,
+                .fork = Fork.Shanghai,
+            },
+            .block = .{
+                .number = 1,
+                .coinbase = 1,
+                .timestamp = 1,
+                .difficulty = 1,
+                .prev_randao = null,
+                .basefee = 1,
+                .gas_limit = 100,
+            },
+            .tx = .{
+                .caller = @as(u160, 2020),
+                .gas_limit = 100,
+                .gas_price = 1,
+                .gas_priority_fee = null,
+                .value = 1,
+                .data = &[_]u8{},
+                .chain_id = null,
+                .nonce = null,
+                .purpose = .{ .Call = 1 },
+            },
+        };
     }
     pub fn loadAccount(self: *Mock, address: Address) !?AccountLoadResult {
         _ = address;
@@ -318,7 +351,7 @@ pub const Mock = struct {
     pub fn balance(self: *Mock, address: Address) !?HostResult(u256) {
         _ = address;
         _ = self;
-        return HostError.Unimplemented;
+        return HostResult(u256).init(@as(u256, 1337), false);
     }
     pub fn code(self: *Mock) !?HostResult([]u8) {
         _ = self;
