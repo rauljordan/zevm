@@ -1,7 +1,7 @@
 const std = @import("std");
 
 // TODO: Build the host structs here!
-const Host = struct {
+pub const Host = struct {
     getFn: *const fn (ptr: *Host) void,
     numInputsFn: *const fn (ptr: *Host) void,
     pub fn get(self: *Host) void {
@@ -13,7 +13,7 @@ const Host = struct {
 };
 
 // TODO: Build a real host via the Rust FFI boundary.
-const Mock = struct {
+pub const Mock = struct {
     db: Host,
     pub fn init() Mock {
         const impl = struct {
@@ -30,11 +30,11 @@ const Mock = struct {
             .db = .{ .getFn = impl.get, .numInputsFn = impl.numInputs },
         };
     }
-    pub fn get(self: *Host) void {
+    pub fn get(self: *Mock) void {
         _ = self;
         std.debug.print("get", .{});
     }
-    pub fn numInputs(self: *Host) void {
+    pub fn numInputs(self: *Mock) void {
         _ = self;
         std.debug.print("numInputs", .{});
     }

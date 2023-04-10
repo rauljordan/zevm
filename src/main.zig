@@ -149,18 +149,18 @@ pub const Interpreter = struct {
             self.inst_result = Status.OutOfGas;
         }
     }
-    fn pushN(self: *This, n: u8) !void {
+    fn pushN(self: *This, comptime n: u8) !void {
         self.subGas(gas.VERYLOW);
         const start = @ptrCast(*u8, self.inst + n);
         var x = try int.Managed.initSet(self.ac, start.*);
         try self.stack.push(x);
         self.inst += n;
     }
-    fn dupN(self: *This, n: u8) !void {
+    fn dupN(self: *This, comptime n: u8) !void {
         self.subGas(gas.VERYLOW);
         self.inst_result = try self.stack.dup(n);
     }
-    fn swapN(self: *This, n: u8) !void {
+    fn swapN(self: *This, comptime n: u8) !void {
         self.subGas(gas.VERYLOW);
         self.inst_result = try self.stack.swap(n);
     }
@@ -328,20 +328,20 @@ pub const Interpreter = struct {
             opcode.SAR => {},
             opcode.SHA3 => {},
             opcode.ADDRESS => {
-                self.subGas(gas.HIGH);
-                const addr = try self.eth_host.address();
-                var addr_bytes = std.fmt.bytesToHex(addr, .lower);
-                var r = try int.Managed.init(self.ac);
-                try r.setString(10, &addr_bytes);
-                try self.stack.push(r);
+                // self.subGas(gas.HIGH);
+                // const addr = try self.eth_host.address();
+                // var addr_bytes = std.fmt.bytesToHex(addr, .lower);
+                // var r = try int.Managed.init(self.ac);
+                // try r.setString(10, &addr_bytes);
+                // try self.stack.push(r);
             },
             opcode.BALANCE => {
-                self.subGas(gas.HIGH);
-                const balance = try self.eth_host.balance();
-                var balance_bytes = std.fmt.bytesToHex(balance, .lower);
-                var r = try int.Managed.init(self.ac);
-                try r.setString(10, &balance_bytes);
-                try self.stack.push(r);
+                // self.subGas(gas.HIGH);
+                // const balance = try self.eth_host.balance();
+                // var balance_bytes = std.fmt.bytesToHex(balance, .lower);
+                // var r = try int.Managed.init(self.ac);
+                // try r.setString(10, &balance_bytes);
+                // try self.stack.push(r);
             },
             opcode.ORIGIN => {},
             opcode.CALLER => {},
