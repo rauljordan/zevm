@@ -1,38 +1,41 @@
-pub const Mock = struct {
-    pub fn init() Mock {
-        return .{};
+const std = @import("std");
+
+// TODO: Build the host structs here!
+const Host = struct {
+    getFn: *const fn (ptr: *Host) void,
+    numInputsFn: *const fn (ptr: *Host) void,
+    pub fn get(self: *Host) void {
+        self.getFn(self);
     }
-    pub fn address(self: Mock) ![20]u8 {
-        _ = self;
-        return [20]u8{
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
+    pub fn numInputs(self: *Host) void {
+        self.numInputsFn(self);
+    }
+};
+
+// TODO: Build a real host via the Rust FFI boundary.
+const Mock = struct {
+    db: Host,
+    pub fn init() Mock {
+        const impl = struct {
+            pub fn get(ptr: *Host) void {
+                const self = @fieldParentPtr(Mock, "db", ptr);
+                self.get();
+            }
+            pub fn numInputs(ptr: *Host) void {
+                const self = @fieldParentPtr(Mock, "db", ptr);
+                self.numInputs();
+            }
+        };
+        return .{
+            .db = .{ .getFn = impl.get, .numInputsFn = impl.numInputs },
         };
     }
-    pub fn balance(self: Mock) ![4]u8 {
+    pub fn get(self: *Host) void {
         _ = self;
-        return [4]u8{ 1, 2, 3, 4 };
+        std.debug.print("get", .{});
     }
-    pub fn gasLimit(self: Mock) !u64 {
+    pub fn numInputs(self: *Host) void {
         _ = self;
-        return 1;
+        std.debug.print("numInputs", .{});
     }
 };
