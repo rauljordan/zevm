@@ -3,6 +3,7 @@ const testing = std.testing;
 const opcode = @import("opcode.zig");
 const gas = @import("gas.zig");
 const host = @import("host.zig");
+const Stack = @import("stack.zig").Stack;
 const BigInt = std.math.big.int.Managed;
 
 const MAX_CODE_SIZE: usize = 0x6000;
@@ -23,11 +24,14 @@ pub fn main() !void {
         0x02,
         opcode.PUSH1,
         0x03,
-        opcode.EXP,
+        opcode.PUSH1,
+        0x04,
+        opcode.SWAP1,
         opcode.DUP1,
         opcode.ADD,
         opcode.DUP1,
         opcode.EXP,
+        opcode.MULMOD,
         opcode.STOP,
     };
     std.debug.print("input bytecode 0x{x}\n", .{
@@ -49,8 +53,6 @@ test "Stack manipulation opcodes" {}
 test "Control flow opcodes" {}
 test "Host opcodes" {}
 
-pub const StackErr = error{ Underflow, Overflow };
-
 pub const Status = enum {
     Break,
     Continue,
@@ -58,54 +60,6 @@ pub const Status = enum {
     StackUnderflow,
     StackOverflow,
 };
-
-// TODO: Impl safe stack.
-fn Stack(comptime T: type) type {
-    const STACK_LIMIT: usize = 1024;
-    return struct {
-        const This = @This();
-        inner: std.ArrayList(T),
-        ac: std.mem.Allocator,
-        fn init(ac: std.mem.Allocator) !This {
-            var inner = try std.ArrayList(T).initCapacity(ac, STACK_LIMIT);
-            return .{
-                .ac = ac,
-                .inner = inner,
-            };
-        }
-        fn deinit(self: *This) !void {
-            self.inner.deinit();
-        }
-        fn get(self: This, idx: usize) *T {
-            return &self.inner.items[idx];
-        }
-        fn push(self: *This, x: T) !void {
-            return try self.inner.append(x);
-        }
-        fn pop(self: *This) T {
-            return self.inner.pop();
-        }
-        fn swap(self: *This, idx: usize) !Status {
-            _ = idx;
-            _ = self;
-            return Status.Continue;
-        }
-        fn dup(self: *This, idx: usize) !Status {
-            const len = self.inner.items.len;
-            if (len < idx) {
-                return Status.StackUnderflow;
-            } else if (len + 1 > STACK_LIMIT) {
-                return Status.StackOverflow;
-            }
-            const item = self.get(len - idx);
-            try self.push(item.*);
-            return Status.Continue;
-        }
-        fn print(self: This) void {
-            std.debug.print("{any}\n", .{self.inner.items});
-        }
-    };
-}
 
 pub const InterpreterError = error{
     DisallowedHostCall,
@@ -171,7 +125,7 @@ pub const Interpreter = struct {
     }
     fn swapN(self: *This, comptime n: u8) !void {
         self.subGas(gas.VERYLOW);
-        self.inst_result = try self.stack.swap(n);
+        return try self.stack.swap(n);
     }
     fn eval(self: *This, op: u8) !void {
         switch (op) {
@@ -246,8 +200,36 @@ pub const Interpreter = struct {
                 try self.stack.push(@mod(a, b));
             },
             opcode.SMOD => {},
-            opcode.ADDMOD => {},
-            opcode.MULMOD => {},
+            opcode.ADDMOD => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var c = self.stack.pop();
+                var x = try BigInt.initSet(self.ac, a);
+                defer x.deinit();
+                var y = try BigInt.initSet(self.ac, b);
+                defer y.deinit();
+                var r = try BigInt.init(self.ac);
+                defer r.deinit();
+                _ = try r.addWrap(&x, &y, .unsigned, 256);
+                const result = try r.to(u256);
+                try self.stack.push(@mod(result, c));
+            },
+            opcode.MULMOD => {
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                var b = self.stack.pop();
+                var c = self.stack.pop();
+                var x = try BigInt.initSet(self.ac, a);
+                defer x.deinit();
+                var y = try BigInt.initSet(self.ac, b);
+                defer y.deinit();
+                var r = try BigInt.init(self.ac);
+                defer r.deinit();
+                _ = try r.mulWrap(&x, &y, .unsigned, 256);
+                const result = try r.to(u256);
+                try self.stack.push(@mod(result, c));
+            },
             opcode.EXP => {
                 self.subGas(gas.LOW);
                 var a = self.stack.pop();
@@ -369,7 +351,18 @@ pub const Interpreter = struct {
                 try self.stack.push(a >> rhs);
             },
             opcode.SAR => {},
-            opcode.SHA3 => {},
+            opcode.SHA3 => {
+                self.subGas(gas.LOW);
+                // var a = self.stack.pop();
+                // var input = try BigInt.initSet(self.ac, a);
+                // defer input.deinit();
+                // var out: [32]u8 = undefined;
+                // var input_bytes = try input.to([32]u8);
+                // std.crypto.hash.sha3.Keccak256.hash(&input_bytes, &out, .{});
+                // const result = try BigInt.initSet(self.ac, out);
+                // defer result.deinit();
+                // try self.stack.push(try result.to(u256));
+            },
             opcode.ADDRESS => {
                 self.subGas(gas.HIGH);
                 const env = try self.eth_host.env();
@@ -380,6 +373,7 @@ pub const Interpreter = struct {
                 try self.stack.push(@as(u256, addr));
             },
             opcode.BALANCE => {
+                // TODO: Charge host functions depending on cold results.
                 self.subGas(gas.HIGH);
                 var a = self.stack.pop();
                 const addr = @truncate(u160, a);
@@ -405,21 +399,56 @@ pub const Interpreter = struct {
             opcode.CALLDATASIZE => {},
             opcode.CALLDATACOPY => {},
             opcode.CODESIZE => {},
-            opcode.GASPRICE => {},
+            opcode.GASPRICE => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.tx.gas_price);
+            },
             opcode.EXTCODESIZE => {},
             opcode.EXTCODECOPY => {},
             opcode.RETURNDATASIZE => {},
             opcode.RETURNDATACOPY => {},
             opcode.EXTCODEHASH => {},
-            opcode.BLOCKHASH => {},
-            opcode.COINBASE => {},
-            opcode.TIMESTAMP => {},
-            opcode.NUMBER => {},
-            opcode.PREVRANDAO => {},
+            opcode.BLOCKHASH => {
+                self.subGas(gas.HIGH);
+                var a = self.stack.pop();
+                if (a > 256) {
+                    // TODO: Revert instead.
+                    return InterpreterError.DisallowedHostCall;
+                }
+            },
+            opcode.COINBASE => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.block.coinbase);
+            },
+            opcode.TIMESTAMP => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.block.timestamp);
+            },
+            opcode.NUMBER => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.block.number);
+            },
+            opcode.PREVRANDAO => {
+                // self.subGas(gas.HIGH);
+                // const env = try self.eth_host.env();
+                // try self.stack.push(env.block.prev_randao orelse 0);
+            },
             opcode.GASLIMIT => {},
-            opcode.CHAINID => {},
+            opcode.CHAINID => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.chain.chain_id);
+            },
             opcode.SELFBALANCE => {},
-            opcode.BASEFEE => {},
+            opcode.BASEFEE => {
+                self.subGas(gas.HIGH);
+                const env = try self.eth_host.env();
+                try self.stack.push(env.block.basefee);
+            },
             opcode.POP => {
                 self.subGas(gas.VERYLOW);
                 _ = self.stack.pop();
@@ -429,7 +458,13 @@ pub const Interpreter = struct {
             opcode.MSTORE8 => {},
             opcode.SLOAD => {},
             opcode.SSTORE => {},
-            opcode.JUMP => {},
+            opcode.JUMP => {
+                // TODO: JUMPDEST checks.
+                self.subGas(gas.LOW);
+                var a = self.stack.pop();
+                _ = a;
+                //self.inst = @ptrCast([*]u8, &@truncate(u8, a));
+            },
             opcode.JUMPI => {},
             opcode.PC => {
                 try self.stack.push(@as(u256, self.programCounter()));
@@ -506,7 +541,11 @@ pub const Interpreter = struct {
             opcode.SWAP14 => try self.swapN(14),
             opcode.SWAP15 => try self.swapN(15),
             opcode.SWAP16 => try self.swapN(16),
-            opcode.LOG0 => {},
+            opcode.LOG0 => {
+                // self.subGas(gas.HIGH);
+                // const env = try self.eth_host.env();
+                // try self.stack.push(env.chain.chain_id);
+            },
             opcode.LOG1 => {},
             opcode.LOG2 => {},
             opcode.LOG3 => {},
