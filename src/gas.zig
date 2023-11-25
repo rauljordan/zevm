@@ -1,11 +1,3 @@
-pub const ZERO: u64 = 0;
-pub const ONE: u64 = 1;
-pub const TWO: u64 = 2;
-pub const VERYLOW: u64 = 3;
-pub const LOW: u64 = 5;
-pub const HIGH: u64 = 100;
-pub const HIGHEST: u64 = 32000;
-
 pub const Tracker = struct {
     limit: u64,
     total_used: u64,

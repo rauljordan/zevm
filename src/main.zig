@@ -113,18 +113,18 @@ pub const Interpreter = struct {
         }
     }
     fn pushN(self: *This, comptime n: u8) !void {
-        self.subGas(gas.VERYLOW);
+        self.subGas(3);
         const start = @ptrCast(*u8, self.inst + n);
         var x = @as(u256, start.*);
         try self.stack.push(x);
         self.inst += n;
     }
     fn dupN(self: *This, comptime n: u8) !void {
-        self.subGas(gas.VERYLOW);
+        self.subGas(3);
         self.inst_result = try self.stack.dup(n);
     }
     fn swapN(self: *This, comptime n: u8) !void {
-        self.subGas(gas.VERYLOW);
+        self.subGas(3);
         return try self.stack.swap(n);
     }
     fn eval(self: *This, op: u8) !void {
@@ -135,7 +135,7 @@ pub const Interpreter = struct {
             },
             // Arithmetic.
             opcode.ADD => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -149,7 +149,7 @@ pub const Interpreter = struct {
                 try self.stack.push(result);
             },
             opcode.MUL => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -163,7 +163,7 @@ pub const Interpreter = struct {
                 try self.stack.push(result);
             },
             opcode.SUB => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -177,7 +177,7 @@ pub const Interpreter = struct {
                 try self.stack.push(result);
             },
             opcode.DIV => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -194,14 +194,14 @@ pub const Interpreter = struct {
             },
             opcode.SDIV => {},
             opcode.MOD => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 try self.stack.push(@mod(a, b));
             },
             opcode.SMOD => {},
             opcode.ADDMOD => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var c = self.stack.pop();
@@ -216,7 +216,7 @@ pub const Interpreter = struct {
                 try self.stack.push(@mod(result, c));
             },
             opcode.MULMOD => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var c = self.stack.pop();
@@ -231,7 +231,7 @@ pub const Interpreter = struct {
                 try self.stack.push(@mod(result, c));
             },
             opcode.EXP => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -246,7 +246,7 @@ pub const Interpreter = struct {
             opcode.SIGNEXTEND => {},
             // Comparisons.
             opcode.LT => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 if (a < b) {
@@ -256,7 +256,7 @@ pub const Interpreter = struct {
                 }
             },
             opcode.GT => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 if (a > b) {
@@ -266,7 +266,7 @@ pub const Interpreter = struct {
                 }
             },
             opcode.SLT => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -280,7 +280,7 @@ pub const Interpreter = struct {
                 }
             },
             opcode.SGT => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 var x = try BigInt.initSet(self.ac, a);
@@ -294,7 +294,7 @@ pub const Interpreter = struct {
                 }
             },
             opcode.EQ => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 if (a == b) {
@@ -304,7 +304,7 @@ pub const Interpreter = struct {
                 }
             },
             opcode.ISZERO => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 if (a == 0) {
                     try self.stack.push(1);
@@ -313,38 +313,38 @@ pub const Interpreter = struct {
                 }
             },
             opcode.AND => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 try self.stack.push(a & b);
             },
             opcode.OR => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 try self.stack.push(a | b);
             },
             opcode.XOR => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 try self.stack.push(a ^ b);
             },
             opcode.NOT => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 try self.stack.push(~a);
             },
             opcode.BYTE => {},
             opcode.SHL => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 const rhs = @truncate(u8, b);
                 try self.stack.push(a << rhs);
             },
             opcode.SHR => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 var a = self.stack.pop();
                 var b = self.stack.pop();
                 const rhs = @truncate(u8, b);
@@ -352,7 +352,7 @@ pub const Interpreter = struct {
             },
             opcode.SAR => {},
             opcode.SHA3 => {
-                self.subGas(gas.LOW);
+                self.subGas(5);
                 // var a = self.stack.pop();
                 // var input = try BigInt.initSet(self.ac, a);
                 // defer input.deinit();
@@ -364,7 +364,7 @@ pub const Interpreter = struct {
                 // try self.stack.push(try result.to(u256));
             },
             opcode.ADDRESS => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 const addr = switch (env.tx.purpose) {
                     .Call => |address| address,
@@ -374,7 +374,7 @@ pub const Interpreter = struct {
             },
             opcode.BALANCE => {
                 // TODO: Charge host functions depending on cold results.
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 var a = self.stack.pop();
                 const addr = @truncate(u160, a);
                 const result = try self.eth_host.balance(addr);
@@ -386,12 +386,12 @@ pub const Interpreter = struct {
             },
             opcode.ORIGIN => {},
             opcode.CALLER => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(@as(u256, env.tx.caller));
             },
             opcode.CALLVALUE => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.tx.value);
             },
@@ -400,7 +400,7 @@ pub const Interpreter = struct {
             opcode.CALLDATACOPY => {},
             opcode.CODESIZE => {},
             opcode.GASPRICE => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.tx.gas_price);
             },
@@ -410,7 +410,7 @@ pub const Interpreter = struct {
             opcode.RETURNDATACOPY => {},
             opcode.EXTCODEHASH => {},
             opcode.BLOCKHASH => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 var a = self.stack.pop();
                 if (a > 256) {
                     // TODO: Revert instead.
@@ -418,39 +418,39 @@ pub const Interpreter = struct {
                 }
             },
             opcode.COINBASE => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.block.coinbase);
             },
             opcode.TIMESTAMP => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.block.timestamp);
             },
             opcode.NUMBER => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.block.number);
             },
             opcode.PREVRANDAO => {
-                // self.subGas(gas.HIGH);
+                // self.subGas(100);
                 // const env = try self.eth_host.env();
                 // try self.stack.push(env.block.prev_randao orelse 0);
             },
             opcode.GASLIMIT => {},
             opcode.CHAINID => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.chain.chain_id);
             },
             opcode.SELFBALANCE => {},
             opcode.BASEFEE => {
-                self.subGas(gas.HIGH);
+                self.subGas(100);
                 const env = try self.eth_host.env();
                 try self.stack.push(env.block.basefee);
             },
             opcode.POP => {
-                self.subGas(gas.VERYLOW);
+                self.subGas(3);
                 _ = self.stack.pop();
             },
             opcode.MLOAD => {},
@@ -542,7 +542,7 @@ pub const Interpreter = struct {
             opcode.SWAP15 => try self.swapN(15),
             opcode.SWAP16 => try self.swapN(16),
             opcode.LOG0 => {
-                // self.subGas(gas.HIGH);
+                // self.subGas(100);
                 // const env = try self.eth_host.env();
                 // try self.stack.push(env.chain.chain_id);
             },
